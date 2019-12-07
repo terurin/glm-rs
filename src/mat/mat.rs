@@ -21,54 +21,54 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-use basenum::{ BaseFloat, ApproxEq };
-use vec::vec::{ Vector2, Vector3, Vector4 };
 use super::traits::GenMat;
-use std::mem;
-use std::ops::{ Add, Mul, Sub, Neg, Div, Rem, Index, IndexMut };
-use rand::{ Rand, Rng };
+use basenum::{ApproxEq, BaseFloat};
 use num::Zero;
 #[cfg(test)]
-use quickcheck::{ Arbitrary, Gen };
+use quickcheck::{Arbitrary, Gen};
+use rand::{Rand, Rng};
+use std::mem;
+use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Rem, Sub};
+use vec::vec::{Vector2, Vector3, Vector4};
 
 macro_rules! mul_v_unrolled {
     ($m: ident, $v: ident, Vector2, Vector2) => {
         Vector2::new(
             $m[0].x * $v.x + $m[1].x * $v.y,
-            $m[0].y * $v.x + $m[1].y * $v.y
+            $m[0].y * $v.x + $m[1].y * $v.y,
         )
     };
     ($m: ident, $v: ident, Vector2, Vector3) => {
         Vector2::new(
             $m[0].x * $v.x + $m[1].x * $v.y + $m[2].x * $v.z,
-            $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z
+            $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z,
         )
     };
     ($m: ident, $v: ident, Vector2, Vector4) => {
         Vector2::new(
             $m[0].x * $v.x + $m[1].x * $v.y + $m[2].x * $v.z + $m[3].x * $v.w,
-            $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z + $m[3].y * $v.w
+            $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z + $m[3].y * $v.w,
         )
     };
     ($m: ident, $v: ident, Vector3, Vector2) => {
         Vector3::new(
             $m[0].x * $v.x + $m[1].x * $v.y,
             $m[0].y * $v.x + $m[1].y * $v.y,
-            $m[0].z * $v.x + $m[1].z * $v.y
+            $m[0].z * $v.x + $m[1].z * $v.y,
         )
     };
     ($m: ident, $v: ident, Vector3, Vector3) => {
         Vector3::new(
             $m[0].x * $v.x + $m[1].x * $v.y + $m[2].x * $v.z,
             $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z,
-            $m[0].z * $v.x + $m[1].z * $v.y + $m[2].z * $v.z
+            $m[0].z * $v.x + $m[1].z * $v.y + $m[2].z * $v.z,
         )
     };
     ($m: ident, $v: ident, Vector3, Vector4) => {
         Vector3::new(
             $m[0].x * $v.x + $m[1].x * $v.y + $m[2].x * $v.z + $m[3].x * $v.w,
             $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z + $m[3].y * $v.w,
-            $m[0].z * $v.x + $m[1].z * $v.y + $m[2].z * $v.z + $m[3].z * $v.w
+            $m[0].z * $v.x + $m[1].z * $v.y + $m[2].z * $v.z + $m[3].z * $v.w,
         )
     };
     ($m: ident, $v: ident, Vector4, Vector2) => {
@@ -76,7 +76,7 @@ macro_rules! mul_v_unrolled {
             $m[0].x * $v.x + $m[1].x * $v.y,
             $m[0].y * $v.x + $m[1].y * $v.y,
             $m[0].z * $v.x + $m[1].z * $v.y,
-            $m[0].w * $v.x + $m[1].w * $v.y
+            $m[0].w * $v.x + $m[1].w * $v.y,
         )
     };
     ($m: ident, $v: ident, Vector4, Vector3) => {
@@ -84,7 +84,7 @@ macro_rules! mul_v_unrolled {
             $m[0].x * $v.x + $m[1].x * $v.y + $m[2].x * $v.z,
             $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z,
             $m[0].z * $v.x + $m[1].z * $v.y + $m[2].z * $v.z,
-            $m[0].w * $v.x + $m[1].w * $v.y + $m[2].w * $v.z
+            $m[0].w * $v.x + $m[1].w * $v.y + $m[2].w * $v.z,
         )
     };
     ($m: ident, $v: ident, Vector4, Vector4) => {
@@ -92,31 +92,24 @@ macro_rules! mul_v_unrolled {
             $m[0].x * $v.x + $m[1].x * $v.y + $m[2].x * $v.z + $m[3].x * $v.w,
             $m[0].y * $v.x + $m[1].y * $v.y + $m[2].y * $v.z + $m[3].y * $v.w,
             $m[0].z * $v.x + $m[1].z * $v.y + $m[2].z * $v.z + $m[3].z * $v.w,
-            $m[0].w * $v.x + $m[1].w * $v.y + $m[2].w * $v.z + $m[3].w * $v.w
+            $m[0].w * $v.x + $m[1].w * $v.y + $m[2].w * $v.z + $m[3].w * $v.w,
         )
     };
 }
 
 macro_rules! mul_m_unrolled {
     ($lm: ident, $rm: ident, Matrix2) => {
-        Matrix2::new(
-            $lm.mul_v(&$rm.c0),
-            $lm.mul_v(&$rm.c1)
-        )
+        Matrix2::new($lm.mul_v(&$rm.c0), $lm.mul_v(&$rm.c1))
     };
     ($lm: ident, $rm: ident, Matrix3) => {
-        Matrix3::new(
-            $lm.mul_v(&$rm.c0),
-            $lm.mul_v(&$rm.c1),
-            $lm.mul_v(&$rm.c2)
-        )
+        Matrix3::new($lm.mul_v(&$rm.c0), $lm.mul_v(&$rm.c1), $lm.mul_v(&$rm.c2))
     };
     ($lm: ident, $rm: ident, Matrix4) => {
         Matrix4::new(
             $lm.mul_v(&$rm.c0),
             $lm.mul_v(&$rm.c1),
             $lm.mul_v(&$rm.c2),
-            $lm.mul_v(&$rm.c3)
+            $lm.mul_v(&$rm.c3),
         )
     };
 }
@@ -125,40 +118,40 @@ macro_rules! transpose_unrolled {
     ($m: ident, Vector2, Vector2) => {
         Matrix2::new(
             Vector2::new($m[0][0], $m[1][0]),
-            Vector2::new($m[0][1], $m[1][1])
+            Vector2::new($m[0][1], $m[1][1]),
         )
     };
     ($m: ident, Vector2, Vector3) => {
         Matrix2x3::new(
             Vector3::new($m[0][0], $m[1][0], $m[2][0]),
-            Vector3::new($m[0][1], $m[1][1], $m[2][1])
+            Vector3::new($m[0][1], $m[1][1], $m[2][1]),
         )
     };
     ($m: ident, Vector2, Vector4) => {
         Matrix2x4::new(
             Vector4::new($m[0][0], $m[1][0], $m[2][0], $m[3][0]),
-            Vector4::new($m[0][1], $m[1][1], $m[2][1], $m[3][1])
+            Vector4::new($m[0][1], $m[1][1], $m[2][1], $m[3][1]),
         )
     };
     ($m: ident, Vector3, Vector2) => {
         Matrix3x2::new(
             Vector2::new($m[0][0], $m[1][0]),
             Vector2::new($m[0][1], $m[1][1]),
-            Vector2::new($m[0][2], $m[1][2])
+            Vector2::new($m[0][2], $m[1][2]),
         )
     };
     ($m: ident, Vector3, Vector3) => {
         Matrix3::new(
             Vector3::new($m[0][0], $m[1][0], $m[2][0]),
             Vector3::new($m[0][1], $m[1][1], $m[2][1]),
-            Vector3::new($m[0][2], $m[1][2], $m[2][2])
+            Vector3::new($m[0][2], $m[1][2], $m[2][2]),
         )
     };
     ($m: ident, Vector3, Vector4) => {
         Matrix3x4::new(
             Vector4::new($m[0][0], $m[1][0], $m[2][0], $m[3][0]),
             Vector4::new($m[0][1], $m[1][1], $m[2][1], $m[3][1]),
-            Vector4::new($m[0][2], $m[1][2], $m[2][2], $m[3][2])
+            Vector4::new($m[0][2], $m[1][2], $m[2][2], $m[3][2]),
         )
     };
     ($m: ident, Vector4, Vector2) => {
@@ -166,7 +159,7 @@ macro_rules! transpose_unrolled {
             Vector2::new($m[0][0], $m[1][0]),
             Vector2::new($m[0][1], $m[1][1]),
             Vector2::new($m[0][2], $m[1][2]),
-            Vector2::new($m[0][3], $m[1][3])
+            Vector2::new($m[0][3], $m[1][3]),
         )
     };
     ($m: ident, Vector4, Vector3) => {
@@ -174,7 +167,7 @@ macro_rules! transpose_unrolled {
             Vector3::new($m[0][0], $m[1][0], $m[2][0]),
             Vector3::new($m[0][1], $m[1][1], $m[2][1]),
             Vector3::new($m[0][2], $m[1][2], $m[2][2]),
-            Vector3::new($m[0][3], $m[1][3], $m[2][3])
+            Vector3::new($m[0][3], $m[1][3], $m[2][3]),
         )
     };
     ($m: ident, Vector4, Vector4) => {
@@ -182,11 +175,11 @@ macro_rules! transpose_unrolled {
             Vector4::new($m[0][0], $m[1][0], $m[2][0], $m[3][0]),
             Vector4::new($m[0][1], $m[1][1], $m[2][1], $m[3][1]),
             Vector4::new($m[0][2], $m[1][2], $m[2][2], $m[3][2]),
-            Vector4::new($m[0][3], $m[1][3], $m[2][3], $m[3][3])
+            Vector4::new($m[0][3], $m[1][3], $m[2][3], $m[3][3]),
         )
     };
 }
-
+use serde_derive::*;
 macro_rules! def_matrix {
     ($({
         $t: ident,          // type to be defined,
@@ -195,7 +188,7 @@ macro_rules! def_matrix {
     }), +) => {
         $(
             #[repr(C)]
-            #[derive(Copy, Clone, PartialEq, Debug)]
+            #[derive(Copy, Clone, PartialEq, Debug,Serialize,Deserialize)]
             pub struct $t<T: BaseFloat> {
                 $(pub $field: $ct<T>), +
             }
